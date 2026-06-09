@@ -7,6 +7,7 @@ from api_infernce.together_classifier import (
     TOGETHER_API_KEY_ENV,
     TOGETHER_MODEL,
     TogetherQwenClassifier,
+    load_together_api_key,
 )
 from screengrab_demo.models import Frame, SelectedFrame
 
@@ -55,9 +56,29 @@ class TogetherInferenceTests(unittest.TestCase):
         self.assertEqual(client.completions.kwargs["response_format"], {"type": "json_object"})
 
     def test_classifier_requires_together_api_key_without_injected_client(self):
+        streamlit = SimpleNamespace(secrets={})
         with patch.dict("os.environ", {TOGETHER_API_KEY_ENV: ""}, clear=True):
-            with self.assertRaises(RuntimeError):
-                TogetherQwenClassifier()
+            with patch.dict("sys.modules", {"streamlit": streamlit}):
+                with self.assertRaises(RuntimeError):
+                    TogetherQwenClassifier()
+
+    def test_load_together_api_key_uses_streamlit_secret_fallback(self):
+        streamlit = SimpleNamespace(secrets={TOGETHER_API_KEY_ENV: "streamlit-secret"})
+        with patch.dict("os.environ", {}, clear=True):
+            with patch.dict("sys.modules", {"streamlit": streamlit}):
+                self.assertEqual(load_together_api_key(), "streamlit-secret")
+
+    def test_load_together_api_key_prefers_environment_variable(self):
+        streamlit = SimpleNamespace(secrets={TOGETHER_API_KEY_ENV: "streamlit-secret"})
+        with patch.dict("os.environ", {TOGETHER_API_KEY_ENV: "env-secret"}, clear=True):
+            with patch.dict("sys.modules", {"streamlit": streamlit}):
+                self.assertEqual(load_together_api_key(), "env-secret")
+
+    def test_load_together_api_key_returns_none_without_env_or_streamlit_secret(self):
+        streamlit = SimpleNamespace(secrets={})
+        with patch.dict("os.environ", {}, clear=True):
+            with patch.dict("sys.modules", {"streamlit": streamlit}):
+                self.assertIsNone(load_together_api_key())
 
     def test_parse_context(self):
         self.assertEqual(parse_context(["crm=ExampleCRM"]), {"crm": "ExampleCRM"})

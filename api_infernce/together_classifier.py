@@ -17,6 +17,25 @@ MAX_RESPONSE_TOKENS = 512
 TEMPERATURE = 0.0
 
 
+def _load_streamlit_secret(name: str) -> str | None:
+    try:
+        import streamlit as st
+    except ModuleNotFoundError:
+        return None
+
+    try:
+        value = st.secrets.get(name)
+    except Exception:
+        return None
+    if not value:
+        return None
+    return str(value)
+
+
+def load_together_api_key() -> str | None:
+    return os.environ.get(TOGETHER_API_KEY_ENV) or _load_streamlit_secret(TOGETHER_API_KEY_ENV)
+
+
 class TogetherQwenClassifier:
     """Adapter that satisfies `screengrab_demo.classifier.Classifier`."""
 
@@ -25,9 +44,12 @@ class TogetherQwenClassifier:
             self.client = client
             return
 
-        api_key = os.environ.get(TOGETHER_API_KEY_ENV)
+        api_key = load_together_api_key()
         if not api_key:
-            raise RuntimeError(f"Set {TOGETHER_API_KEY_ENV} to use TogetherQwenClassifier.")
+            raise RuntimeError(
+                f"Set {TOGETHER_API_KEY_ENV} as an environment variable or Streamlit secret "
+                "to use TogetherQwenClassifier."
+            )
 
         try:
             from openai import OpenAI
