@@ -1,0 +1,3 @@
+openai>=1.0
+streamlit>=1.36
+pillow>=10.0
